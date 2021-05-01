@@ -46,7 +46,7 @@ def detect_face(img):
         emotion_preds = emotion_model.predict(rgb2gray(grey_img).reshape(1, 48, 48, 1))
 
         # output to the cv2
-        return_res.append([top, right, bottom, left, sex_preds, age_preds, emotion_preds])
+        return_res.append([top, right, bottom, left, emotion_preds])
 
     return return_res
 
@@ -75,15 +75,10 @@ while True:
     face_locations = detect_face(rgb_frame)
 
     # Display the results
-    for top, right, bottom, left, sex_preds, age_preds, emotion_preds in face_locations:
+    for top, right, bottom, left, emotion_preds in face_locations:
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
 
-        sex_text = 'Female' if sex_preds > 0.5 else 'Male'
-        cv2.putText(frame, 'Sex: {}({:.3f})'.format(sex_text, sex_preds), (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5, (36, 255, 12), 1)
-        cv2.putText(frame, 'Age: {:.3f}'.format(age_preds), (left, top - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    (36, 255, 12), 1)
         cv2.putText(frame, 'Emotion: {}({:.3f})'.format(emotion_dict[np.argmax(emotion_preds)], np.max(emotion_preds)),
                     (left, top - 40), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 1)
 
