@@ -159,7 +159,7 @@ def main():
     predictions = model.predict_classes(X_test)
     print(classification_report(y_test.ravel(), predictions, target_names=target_encoder.categories_[0]))
 
-    model.save('models/my-emotion-model-final.hdf5')
+    model.save('models/my-emotion-model.hdf5')
 
 
 if __name__ == '__main__':
