@@ -55,13 +55,13 @@ def detect_face(img):
 video_capture = cv2.VideoCapture(0)
 
 emotion_dict = {
-    0: 'Surprise',
-    1: 'Happy',
-    2: 'Disgust',
-    3: 'Anger',
-    4: 'Sadness',
-    5: 'Fear',
-    6: 'Contempt'
+    0: 'anger',
+    1: 'disgust',
+    2: 'fear',
+    3: 'happiness',
+    4: 'sadness',
+    5: 'surprise',
+    6: 'neutral'
 }
 
 while True:
