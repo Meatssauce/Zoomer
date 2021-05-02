@@ -46,8 +46,8 @@ def detect_face(image):
         # create predictions
 
         # convert to grayscale then predict using the emotion model
-        image = np.array(Image.fromarray(center_img_k).resize([48, 48]))
-        emotion_preds = emotion_model.predict(rgb2gray(image).reshape(1, 48, 48, 1))
+        grey_img = np.array(Image.fromarray(center_img_k).resize([48, 48]))
+        emotion_preds = emotion_model.predict(rgb2gray(grey_img).reshape(1, 48, 48, 1))
 
         # output to the cv2
         results.append([top, right, bottom, left, emotion_preds])
