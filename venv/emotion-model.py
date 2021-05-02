@@ -6,6 +6,7 @@ import os
 import cv2
 from sklearn.metrics import classification_report
 
+from sklearn import utils
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, OneHotEncoder, OrdinalEncoder
 
@@ -19,50 +20,64 @@ from tensorflow.keras.preprocessing import image_dataset_from_directory
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.utils import np_utils
+from tensorflow.keras.layers import BatchNormalization, MaxPooling2D
+from imblearn.over_sampling import RandomOverSampler
 
 
-def make_model(img_height, img_width):
-    model = Sequential([
-        # Input(shape=(img_height, img_width, 1)),
-        InputLayer(input_shape=(img_height, img_width, 1)),
-        Conv2D(36, kernel_size=3, activation='relu'),
-        MaxPool2D(pool_size=3, strides=2),
-        Conv2D(64, kernel_size=3, activation='relu'),
-        MaxPool2D(pool_size=3, strides=2),
-        Conv2D(128, kernel_size=3, activation='relu'),
-        MaxPool2D(pool_size=3, strides=2),
-        Flatten(),
-        Dropout(0.3),
-        Dense(256, activation='relu'),
-        Dense(7, activation='softmax', name='race', kernel_regularizer=l1(1))
-    ])
-    model.compile(optimizer=Adam(learning_rate=0.0001), loss='categorical_crossentropy',
-                  metrics=['categorical_accuracy'])
+def make_model(img_height, img_width, img_depth):
+    net = Sequential(name='DCNN')
 
-    return model
+    net.add(Conv2D(filters=64, kernel_size=(5, 5), input_shape=(img_width, img_height, img_depth), activation='elu',
+                   padding='same', kernel_initializer='he_normal', name='conv2d_1'))
+    net.add(BatchNormalization(name='batchnorm_1'))
+    net.add(Conv2D(filters=64, kernel_size=(5, 5), activation='elu', padding='same', kernel_initializer='he_normal',
+                   name='conv2d_2'))
+    net.add(BatchNormalization(name='batchnorm_2'))
+
+    net.add(MaxPooling2D(pool_size=(2, 2), name='maxpool2d_1'))
+    net.add(Dropout(0.4, name='dropout_1'))
+
+    net.add(Conv2D(filters=128, kernel_size=(3, 3), activation='elu', padding='same', kernel_initializer='he_normal',
+                   name='conv2d_3'))
+    net.add(BatchNormalization(name='batchnorm_3'))
+    net.add(Conv2D(filters=128, kernel_size=(3, 3), activation='elu', padding='same', kernel_initializer='he_normal',
+                   name='conv2d_4'))
+    net.add(BatchNormalization(name='batchnorm_4'))
+
+    net.add(MaxPooling2D(pool_size=(2, 2), name='maxpool2d_2'))
+    net.add(Dropout(0.4, name='dropout_2'))
+
+    net.add(Conv2D(filters=256, kernel_size=(3, 3), activation='elu', padding='same', kernel_initializer='he_normal',
+                   name='conv2d_5'))
+    net.add(BatchNormalization(name='batchnorm_5'))
+    net.add(Conv2D(filters=256, kernel_size=(3, 3), activation='elu', padding='same', kernel_initializer='he_normal',
+                   name='conv2d_6'))
+    net.add(BatchNormalization(name='batchnorm_6'))
+
+    net.add(MaxPooling2D(pool_size=(2, 2), name='maxpool2d_3'))
+    net.add(Dropout(0.5, name='dropout_3'))
+
+    net.add(Flatten(name='flatten'))
+    net.add(Dense(128, activation='elu', kernel_initializer='he_normal', name='dense_1'))
+    net.add(BatchNormalization(name='batchnorm_7'))
+    net.add(Dropout(0.6, name='dropout_4'))
+    net.add(Dense(7, activation='softmax', name='out_layer'))
+
+    net.compile(optimizer=Adam(0.001), loss='categorical_crossentropy', metrics=['categorical_accuracy'])
+    net.summary()
+
+    return net
 
 
 def get_data(data_dir, img_height, img_width):
     img_data_arr = []
     class_names = []
-    for label in os.listdir(data_dir):
-        last_person = ''
-        for file in os.listdir(os.path.join(data_dir, label)):
-            # skip images on the same person
-            curr_person = re.search('^(S[0-9]+)_', file)
-            if curr_person == last_person:
-                continue
-            last_person = curr_person
-
-            try:
-                image_path = os.path.join(data_dir, label, file)
-                image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-                image = cv2.resize(image, (img_height, img_width))  # Reshaping images to preferred size
-                image = np.array(image)
-                img_data_arr.append(image)
-                class_names.append(label)
-            except Exception as e:
-                print(e)
+    df = pd.read_csv(data_dir)
+    df['pixels'] = df['pixels'].str.split(' ')
+    for i in df.index:
+        pixels = [float(v) for v in df.loc[i, 'pixels']]
+        img_data_arr.append(np.array(pixels).reshape(img_height, img_width))
+        class_names.append(df.loc[i, 'emotion'])
     return np.array(img_data_arr), np.array(class_names)
 
 
@@ -71,35 +86,26 @@ def main():
     debug = False
     seed = np.random.seed(42)
     img_size = 48
-    data_dir = 'assets/dataset/CK+48'
-    # labels = ['anger', 'contempt', 'disgust', 'fear', 'happy', 'sadness', 'surprise']
-    target_encoder = OrdinalEncoder()
+    data_dir = 'assets/dataset/fer2013/fer2013.csv'
+    emotion_label_to_text = {
+        0: 'anger',
+        1: 'disgust',
+        2: 'fear',
+        3: 'happiness',
+        4: 'sadness',
+        5: 'surprise',
+        6: 'neutral'
+    }
 
     # Load data
-    # train_data = tf.keras.preprocessing.image_dataset_from_directory(
-    #     data_dir,
-    #     image_size=(img_size, img_size),
-    #     color_mode='grayscale',
-    #     seed=42,
-    #     validation_split=0.2,
-    #     subset='training'
-    # )
-    # test_data = tf.keras.preprocessing.image_dataset_from_directory(
-    #     data_dir,
-    #     image_size=(img_size, img_size),
-    #     color_mode='grayscale',
-    #     seed=42,
-    #     validation_split=0.2,
-    #     subset='validation'
-    # )
     X, y = get_data(data_dir, img_size, img_size)
     if debug:
         plt.figure(figsize=(5, 5))
-        plt.imshow(X[600])
-        plt.title(y[600])
+        plt.imshow(X[1112])
+        plt.title(y[1112])
         plt.show()
     X = X.reshape(-1, img_size, img_size, 1)  # reshape for model
-    y = target_encoder.fit_transform(y.reshape(y.shape[0], 1))  # encode as integers
+    y = y.reshape(y.shape[0], 1)
 
     # Split into training and testing sets
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=seed)
@@ -107,8 +113,12 @@ def main():
     dummy_y_test = np_utils.to_categorical(y_test)
 
     # Normalise data
-    X_train = X_train / 255
-    X_test = X_test / 255
+    # X_train = X_train / 255
+    # X_test = X_test / 255
+
+    # Compute class weights
+    class_weight = utils.class_weight.compute_class_weight('balanced', classes=np.unique(y_train), y=np.ravel(y_train))
+    class_weight = dict(enumerate(class_weight))
 
     # Augment data
     datagen = ImageDataGenerator(
@@ -125,16 +135,16 @@ def main():
         vertical_flip=False)  # randomly flip images
     datagen.fit(X_train)
 
-    # train_data = tf.data.Dataset.from_tensor_slices((X_train, y_train))
-    # test_data = tf.data.Dataset.from_tensor_slices((X_test, y_test))
-    model = make_model(img_size, img_size)
+    model = make_model(img_size, img_size, 1)
     early_stopping = EarlyStopping(monitor='val_categorical_accuracy', patience=200, verbose=1,
                                    restore_best_weights=True)
     history = model.fit(datagen.flow(X_train, dummy_y_train, batch_size=32), validation_data=(X_test, dummy_y_test),
-                        steps_per_epoch=len(X_train) / 32, epochs=3000, callbacks=[early_stopping])
+                        steps_per_epoch=len(X_train) / 32, epochs=3000, callbacks=[early_stopping],
+                        class_weight=class_weight)
     # history = model.fit(X_train, dummy_y_train, validation_data=(X_test, dummy_y_test), epochs=1500,
     #                     callbacks=[early_stopping])
-    # history = model.fit(train_data, validation_data=test_data, epochs=500, callbacks=[early_stopping])
+
+    model.save('models/my-emotion-model-4.hdf5')
 
     # Evaluate model
     acc = history.history['categorical_accuracy']
@@ -154,12 +164,14 @@ def main():
     plt.plot(val_loss, label='Validation')
     plt.legend(loc='upper right')
     plt.title('Training and Validation Loss')
-    plt.show()
+    plt.savefig('Figure_3.png')
 
     predictions = model.predict_classes(X_test)
-    print(classification_report(y_test.ravel(), predictions, target_names=target_encoder.categories_[0]))
-
-    model.save('models/my-emotion-model.hdf5')
+    report = classification_report(y_test.ravel(), predictions,
+                                   target_names=[v for k, v in emotion_label_to_text.items()])
+    df = pd.DataFrame(report).transpose()
+    df.to_csv('classification_report.csv')
+    print(report)
 
 
 if __name__ == '__main__':
