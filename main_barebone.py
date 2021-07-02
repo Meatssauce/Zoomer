@@ -9,7 +9,7 @@ from keras.models import load_model
 detector = MTCNN()
 
 # load the model
-emotion_model = load_model('../models/my-emotion-model-4.hdf5')
+emotion_model = load_model('models/my-emotion-model-4.hdf5')
 
 
 def rgb2gray(rgb):

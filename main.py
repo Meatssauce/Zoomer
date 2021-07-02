@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 detector = MTCNN()
 
 # load the model
-emotion_model = load_model('../models/my-emotion-model-4.hdf5')
+emotion_model = load_model('models/my-emotion-model-4.hdf5')
 
 
 def rgb2gray(rgb):
